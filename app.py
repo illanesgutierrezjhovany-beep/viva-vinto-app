@@ -1,9 +1,13 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import pytz
 
 # Configuración de la página
 st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page_icon="🍔")
+
+# Definir la zona horaria de Bolivia
+ZONA_HORARIA_BO = pytz.timezone("America/La_Paz")
 
 # Inicialización de la base de datos temporal (Session State)
 if "ventas" not in st.session_state:
@@ -46,59 +50,61 @@ if opcion == "📝 Registrar Venta":
     with col1:
         categoria = st.selectbox("Seleccionar Categoría:", list(CARTA_PRODUCTOS.keys()))
         producto = st.selectbox("Seleccionar Producto:", list(CARTA_PRODUCTOS[categoria].keys()))
-        precio_unitario = CARTA_PRODUCTOS[categoria][producto]
-        st.info(f"**Precio Unitario:** {precio_unitario} Bs.")
+        precio_unitario = float(CARTA_PRODUCTOS[categoria][producto])
+        st.info(f"**Precio Unitario:** {precio_unitario:.2f} Bs.")
 
     with col2:
         cantidad = st.number_input("Cantidad:", min_value=1, value=1, step=1)
         metodo_pago = st.selectbox("Método de Pago:", ["Efectivo", "QR / Transferencia", "Tarjeta"])
         atendido_por = st.selectbox("Atendido por:", ["Caja 1", "Caja 2", "Garzón 1", "Garzón 2"])
 
-    total = cantidad * precio_unitario
-    st.markdown(f"### **Total a cobrar:** `{total} Bs.`")
+    total = float(cantidad * precio_unitario)
+    st.markdown(f"### **Total a cobrar:** `{total:.2f} Bs.`")
 
     if st.button("🔴 Registrar Venta", use_container_width=True):
         nuevo_id = len(st.session_state["ventas"]) + 1
-        ahora = datetime.now()
-        fecha_str = ahora.strftime("%Y-%m-%d")
-        hora_str = ahora.strftime("%H:%M:%S")
+        
+        # Capturar fecha y hora exacta de Bolivia
+        ahora_bo = datetime.now(ZONA_HORARIA_BO)
+        fecha_str = ahora_bo.strftime("%Y-%m-%d")
+        hora_str = ahora_bo.strftime("%H:%M:%S")
 
         nueva_fila = pd.DataFrame([{
-            "ID": nuevo_id,
+            "ID": int(nuevo_id),
             "Fecha": fecha_str,
             "Hora": hora_str,
             "Producto": producto,
             "Categoría": categoria,
-            "Cantidad": cantidad,
-            "Precio Unit. (Bs.)": precio_unitario,
-            "Total (Bs.)": total,
+            "Cantidad": int(cantidad),
+            "Precio Unit. (Bs.)": float(precio_unitario),
+            "Total (Bs.)": float(total),
             "Método Pago": metodo_pago,
             "Atendido Por": atendido_por
         }])
 
         st.session_state["ventas"] = pd.concat([st.session_state["ventas"], nueva_fila], ignore_index=True)
-        st.success(f"✅ ¡Venta ID #{nuevo_id} registrada con éxito!")
+        st.success(f"✅ ¡Venta ID #{nuevo_id} registrada con éxito a las {hora_str} (Hora Bolivia)!")
 
     st.markdown("---")
     st.subheader("📋 Historial de Ventas")
     st.dataframe(st.session_state["ventas"], use_container_width=True)
 
-    # Contenedor para acciones de la tabla: Descargar Excel y Eliminar Venta
+    # Exportar e Eliminar
     col_acc1, col_acc2 = st.columns(2)
 
     with col_acc1:
         st.subheader("📥 Exportar Datos")
         if not st.session_state["ventas"].empty:
-            # Convertir el DataFrame a un archivo Excel en memoria
             import io
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 st.session_state["ventas"].to_excel(writer, index=False, sheet_name='Ventas')
             
+            ahora_bo = datetime.now(ZONA_HORARIA_BO)
             st.download_button(
                 label="📊 Descargar Historial en Excel (.xlsx)",
                 data=buffer.getvalue(),
-                file_name=f"Ventas_Viva_Vinto_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                file_name=f"Ventas_Viva_Vinto_{ahora_bo.strftime('%Y%m%d_%H%M')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
@@ -125,11 +131,15 @@ elif opcion == "📊 Panel de control e informes":
     if st.session_state["ventas"].empty:
         st.warning("Aún no hay ventas registradas para generar el reporte. Registra algunas ventas primero.")
     else:
-        df = st.session_state["ventas"]
+        df = st.session_state["ventas"].copy()
+        
+        # Asegurar tipos numéricos explícitos para los gráficos
+        df["Total (Bs.)"] = pd.to_numeric(df["Total (Bs.)"], errors="coerce")
+        df["Cantidad"] = pd.to_numeric(df["Cantidad"], errors="coerce")
 
         m1, m2, m3 = st.columns(3)
         m1.metric("Ingresos Totales", f"{df['Total (Bs.)'].sum():.2f} BS.")
-        m2.metric("Total Platos / Productos Ventas", f"{df['Cantidad'].sum()} unids.")
+        m2.metric("Total Platos / Productos Ventas", f"{int(df['Cantidad'].sum())} unids.")
         m3.metric("Ticket Promedio", f"{df['Total (Bs.)'].mean():.2f} BS.")
 
         st.markdown("---")
@@ -137,13 +147,13 @@ elif opcion == "📊 Panel de control e informes":
         c1, c2 = st.columns(2)
         with c1:
             st.subheader("Ingresos por Método de Pago (Arqueo)")
-            arqueo = df.groupby("Método Pago")["Total (Bs.)"].sum()
-            st.bar_chart(arqueo)
+            arqueo = df.groupby("Método Pago", as_index=False)["Total (Bs.)"].sum()
+            st.bar_chart(data=arqueo, x="Método Pago", y="Total (Bs.)")
 
         with c2:
             st.subheader("Ventas Totales por Categoría")
-            cat_ventas = df.groupby("Categoría")["Total (Bs.)"].sum()
-            st.bar_chart(cat_ventas)
+            cat_ventas = df.groupby("Categoría", as_index=False)["Total (Bs.)"].sum()
+            st.bar_chart(data=cat_ventas, x="Categoría", y="Total (Bs.)")
 
 # ==================== MÓDULO 3: CARTA Y PRECIOS ====================
 elif opcion == "📋 Carta y Precios":
