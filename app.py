@@ -176,6 +176,36 @@ elif opcion == "📊 Panel de control e informes":
             fig_cat.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
             st.plotly_chart(fig_cat, use_container_width=True)
 
+        st.markdown("---")
+
+        # --- SECCIÓN NUEVA: GRÁFICO INDIVIDUAL POR PLATO ---
+        st.subheader("🔍 Análisis Detallado por Plato / Producto")
+        
+        # Lista de platos que se han vendido
+        platos_vendidos = df["Producto"].unique()
+        plato_seleccionado = st.selectbox("Elige un plato para ver sus ventas individuales:", platos_vendidos)
+        
+        # Filtrar solo el plato seleccionado
+        df_plato = df[df["Producto"] == plato_seleccionado]
+        
+        # Agrupar por hora o registro para graficar
+        fig_plato = px.bar(
+            df_plato,
+            x="Hora",
+            y="Cantidad",
+            color="Atendido Por",
+            title=f"Unidades Vendidas de '{plato_seleccionado}' por Hora",
+            text_auto=True
+        )
+        fig_plato.update_layout(yaxis_title="Cantidad de Platos", xaxis_title="Hora de Venta")
+        
+        # Métricas individuales
+        col_p1, col_p2 = st.columns(2)
+        col_p1.metric(f"Total {plato_seleccionado} Vendidos", f"{int(df_plato['Cantidad'].sum())} unids.")
+        col_p2.metric(f"Dinero Generado por {plato_seleccionado}", f"{df_plato['Total (Bs.)'].sum():.2f} Bs.")
+        
+        st.plotly_chart(fig_plato, use_container_width=True)
+
 # ==================== MÓDULO 3: CARTA Y PRECIOS ====================
 elif opcion == "📋 Carta y Precios":
     st.title("📋 Menú y Precios Oficiales")
