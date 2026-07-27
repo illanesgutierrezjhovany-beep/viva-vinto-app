@@ -12,7 +12,7 @@ st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page
 # Definir la zona horaria de Bolivia
 ZONA_HORARIA_BO = pytz.timezone("America/La_Paz")
 
-# ARCHIVO LOCAL DE PERSISTENCIA ( Evita que se borren los datos al salir )
+# ARCHIVO LOCAL DE PERSISTENCIA
 ARCHIVO_CSV = "ventas_viva_vinto.csv"
 
 # Función para cargar datos guardados automáticamente
@@ -27,13 +27,21 @@ def cargar_ventas():
         "Precio Unit. (Bs.)", "Total (Bs.)", "Método Pago", "Atendido Por"
     ])
 
-# Función para guardar en disco cada vez que hay un cambio
+# Función para guardar en disco
 def guardar_ventas():
     st.session_state["ventas"].to_csv(ARCHIVO_CSV, index=False)
 
 # Inicialización de la base de datos persistente
 if "ventas" not in st.session_state:
     st.session_state["ventas"] = cargar_ventas()
+
+# CONFIGURACIÓN ANTIDISTORSIÓN Y ANTI-ZOOM PARA TELÉFONOS
+CONFIG_GRAFICOS = {
+    'staticPlot': False,
+    'scrollZoom': False,
+    'doubleClick': 'reset',
+    'displayModeBar': False  # Oculta la barra de herramientas flotante en pantallas pequeñas
+}
 
 # Carta de Productos y Precios del Restaurante Viva Vinto
 CARTA_PRODUCTOS = {
@@ -102,7 +110,7 @@ if opcion == "📝 Registrar Venta":
         }])
 
         st.session_state["ventas"] = pd.concat([st.session_state["ventas"], nueva_fila], ignore_index=True)
-        guardar_ventas() # Guardado permanente automático
+        guardar_ventas()
         st.success(f"✅ ¡Venta ID #{nuevo_id} registrada con éxito y GUARDADA a las {hora_str}!")
 
     st.markdown("---")
@@ -138,7 +146,7 @@ if opcion == "📝 Registrar Venta":
             
             if st.button("❌ Eliminar Venta Seleccionada", type="secondary", use_container_width=True):
                 st.session_state["ventas"] = st.session_state["ventas"][st.session_state["ventas"]["ID"] != id_a_eliminar]
-                guardar_ventas() # Actualizar guardado
+                guardar_ventas()
                 st.success(f"Venta ID #{id_a_eliminar} eliminada correctamente.")
                 st.rerun()
         else:
@@ -152,7 +160,7 @@ if opcion == "📝 Registrar Venta":
                     "ID", "Fecha", "Hora", "Producto", "Categoría", "Cantidad", 
                     "Precio Unit. (Bs.)", "Total (Bs.)", "Método Pago", "Atendido Por"
                 ])
-                guardar_ventas() # Guardar estado vacío
+                guardar_ventas()
                 st.success("La base de datos se ha limpiado por completo.")
                 st.rerun()
 
@@ -215,9 +223,15 @@ elif opcion == "📊 Panel de control e informes":
                 color="Método Pago",
                 title="Total Recaudado por Método de Pago"
             )
-            fig_arqueo.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
-            fig_arqueo.update_yaxes(tickformat=",.0f") # Bloquea los decimales
-            st.plotly_chart(fig_arqueo, use_container_width=True)
+            # Bloqueo total de zoom e interacción táctil en los ejes
+            fig_arqueo.update_layout(
+                showlegend=False, 
+                yaxis_title="Total (Bs.)", 
+                xaxis_title="",
+                xaxis=dict(fixedrange=True),
+                yaxis=dict(fixedrange=True, tickformat=",.0f")
+            )
+            st.plotly_chart(fig_arqueo, use_container_width=True, config=CONFIG_GRAFICOS)
 
         with c2:
             st.subheader("Ventas Totales por Categoría")
@@ -230,9 +244,14 @@ elif opcion == "📊 Panel de control e informes":
                 color="Categoría",
                 title="Ventas Acumuladas por Categoría"
             )
-            fig_cat.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
-            fig_cat.update_yaxes(tickformat=",.0f") # Bloquea los decimales
-            st.plotly_chart(fig_cat, use_container_width=True)
+            fig_cat.update_layout(
+                showlegend=False, 
+                yaxis_title="Total (Bs.)", 
+                xaxis_title="",
+                xaxis=dict(fixedrange=True),
+                yaxis=dict(fixedrange=True, tickformat=",.0f")
+            )
+            st.plotly_chart(fig_cat, use_container_width=True, config=CONFIG_GRAFICOS)
 
         st.markdown("---")
 
@@ -252,14 +271,18 @@ elif opcion == "📊 Panel de control e informes":
             title=f"Unidades Vendidas de '{plato_seleccionado}' por Hora",
             text_auto=True
         )
-        fig_plato.update_layout(yaxis_title="Cantidad de Platos", xaxis_title="Hora de Venta")
-        fig_plato.update_yaxes(tickformat=",.0f") # Bloquea los decimales
+        fig_plato.update_layout(
+            yaxis_title="Cantidad de Platos", 
+            xaxis_title="Hora de Venta",
+            xaxis=dict(fixedrange=True),
+            yaxis=dict(fixedrange=True, tickformat=",.0f")
+        )
         
         col_p1, col_p2 = st.columns(2)
         col_p1.metric(f"Total {plato_seleccionado} Vendidos", f"{int(df_plato['Cantidad'].sum())} unids.")
         col_p2.metric(f"Dinero Generado por {plato_seleccionado}", f"{df_plato['Total (Bs.)'].sum():.2f} Bs.")
         
-        st.plotly_chart(fig_plato, use_container_width=True)
+        st.plotly_chart(fig_plato, use_container_width=True, config=CONFIG_GRAFICOS)
 
 # ==================== MÓDULO 3: CARTA Y PRECIOS ====================
 elif opcion == "📋 Carta y Precios":
