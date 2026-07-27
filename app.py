@@ -133,10 +133,11 @@ elif opcion == "📊 Panel de control e informes":
     else:
         df = st.session_state["ventas"].copy()
         
-        # Asegurar tipos numéricos explícitos para los gráficos
-        df["Total (Bs.)"] = pd.to_numeric(df["Total (Bs.)"], errors="coerce")
-        df["Cantidad"] = pd.to_numeric(df["Cantidad"], errors="coerce")
+        # Convertir datos a números
+        df["Total (Bs.)"] = pd.to_numeric(df["Total (Bs.)"], errors="coerce").fillna(0)
+        df["Cantidad"] = pd.to_numeric(df["Cantidad"], errors="coerce").fillna(0)
 
+        # Métricas principales
         m1, m2, m3 = st.columns(3)
         m1.metric("Ingresos Totales", f"{df['Total (Bs.)'].sum():.2f} BS.")
         m2.metric("Total Platos / Productos Ventas", f"{int(df['Cantidad'].sum())} unids.")
@@ -145,15 +146,16 @@ elif opcion == "📊 Panel de control e informes":
         st.markdown("---")
 
         c1, c2 = st.columns(2)
+        
         with c1:
             st.subheader("Ingresos por Método de Pago (Arqueo)")
-            arqueo = df.groupby("Método Pago", as_index=False)["Total (Bs.)"].sum()
-            st.bar_chart(data=arqueo, x="Método Pago", y="Total (Bs.)")
+            arqueo = df.groupby("Método Pago")["Total (Bs.)"].sum()
+            st.bar_chart(arqueo)
 
         with c2:
             st.subheader("Ventas Totales por Categoría")
-            cat_ventas = df.groupby("Categoría", as_index=False)["Total (Bs.)"].sum()
-            st.bar_chart(data=cat_ventas, x="Categoría", y="Total (Bs.)")
+            cat_ventas = df.groupby("Categoría")["Total (Bs.)"].sum()
+            st.bar_chart(cat_ventas)
 
 # ==================== MÓDULO 3: CARTA Y PRECIOS ====================
 elif opcion == "📋 Carta y Precios":
