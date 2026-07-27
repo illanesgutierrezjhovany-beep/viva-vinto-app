@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import pytz
+import plotly.express as px
 
 # Configuración de la página
 st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page_icon="🍔")
@@ -129,11 +130,11 @@ elif opcion == "📊 Panel de control e informes":
     st.title("📊 Dashboard e Informes de Ventas")
 
     if st.session_state["ventas"].empty:
-        st.warning("Aún no hay ventas registradas para generar el reporte. Registra algunas ventas primero.")
+        st.warning("Aún no hay ventas registradas en esta sesión. Registra una nueva venta para generar el reporte.")
     else:
         df = st.session_state["ventas"].copy()
         
-        # Convertir datos a números
+        # Convertir columnas a formato numérico
         df["Total (Bs.)"] = pd.to_numeric(df["Total (Bs.)"], errors="coerce").fillna(0)
         df["Cantidad"] = pd.to_numeric(df["Cantidad"], errors="coerce").fillna(0)
 
@@ -149,13 +150,31 @@ elif opcion == "📊 Panel de control e informes":
         
         with c1:
             st.subheader("Ingresos por Método de Pago (Arqueo)")
-            arqueo = df.groupby("Método Pago")["Total (Bs.)"].sum()
-            st.bar_chart(arqueo)
+            arqueo = df.groupby("Método Pago", as_index=False)["Total (Bs.)"].sum()
+            fig_arqueo = px.bar(
+                arqueo, 
+                x="Método Pago", 
+                y="Total (Bs.)", 
+                text_auto=".2f",
+                color="Método Pago",
+                title="Total Recaudado por Método de Pago"
+            )
+            fig_arqueo.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
+            st.plotly_chart(fig_arqueo, use_container_width=True)
 
         with c2:
             st.subheader("Ventas Totales por Categoría")
-            cat_ventas = df.groupby("Categoría")["Total (Bs.)"].sum()
-            st.bar_chart(cat_ventas)
+            cat_ventas = df.groupby("Categoría", as_index=False)["Total (Bs.)"].sum()
+            fig_cat = px.bar(
+                cat_ventas, 
+                x="Categoría", 
+                y="Total (Bs.)", 
+                text_auto=".2f",
+                color="Categoría",
+                title="Ventas Acumuladas por Categoría"
+            )
+            fig_cat.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
+            st.plotly_chart(fig_cat, use_container_width=True)
 
 # ==================== MÓDULO 3: CARTA Y PRECIOS ====================
 elif opcion == "📋 Carta y Precios":
