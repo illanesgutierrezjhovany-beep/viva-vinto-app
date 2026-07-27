@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import pytz
 import plotly.express as px
+import io
 
 # Configuración de la página
 st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page_icon="🍔")
@@ -96,7 +97,6 @@ if opcion == "📝 Registrar Venta":
     with col_acc1:
         st.subheader("📥 Exportar Datos")
         if not st.session_state["ventas"].empty:
-            import io
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 st.session_state["ventas"].to_excel(writer, index=False, sheet_name='Ventas')
@@ -138,6 +138,36 @@ elif opcion == "📊 Panel de control e informes":
         df["Total (Bs.)"] = pd.to_numeric(df["Total (Bs.)"], errors="coerce").fillna(0)
         df["Cantidad"] = pd.to_numeric(df["Cantidad"], errors="coerce").fillna(0)
 
+        # 📥 BOTÓN EXCLUSIVO: DESCARGAR REPORTES DEL DASHBOARD EN EXCEL
+        st.subheader("📥 Exportar Reporte Ejecutivo del Dashboard")
+        buffer_dash = io.BytesIO()
+        with pd.ExcelWriter(buffer_dash, engine='openpyxl') as writer:
+            # Pestaña 1: Historial General
+            df.to_excel(writer, index=False, sheet_name='Historial Ventas')
+            
+            # Pestaña 2: Arqueo por Método de Pago
+            arqueo_summary = df.groupby("Método Pago", as_index=False)["Total (Bs.)"].sum()
+            arqueo_summary.to_excel(writer, index=False, sheet_name='Resumen Pago')
+            
+            # Pestaña 3: Resumen por Categoría
+            cat_summary = df.groupby("Categoría", as_index=False).agg({"Cantidad": "sum", "Total (Bs.)": "sum"})
+            cat_summary.to_excel(writer, index=False, sheet_name='Resumen Categoría')
+            
+            # Pestaña 4: Resumen por Producto / Plato
+            prod_summary = df.groupby("Producto", as_index=False).agg({"Cantidad": "sum", "Total (Bs.)": "sum"})
+            prod_summary.to_excel(writer, index=False, sheet_name='Ventas por Producto')
+
+        ahora_bo = datetime.now(ZONA_HORARIA_BO)
+        st.download_button(
+            label="📈 Descargar Reporte de Dashboard Completo en Excel (.xlsx)",
+            data=buffer_dash.getvalue(),
+            file_name=f"Reporte_Dashboard_Viva_Vinto_{ahora_bo.strftime('%Y%m%d_%H%M')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+
+        st.markdown("---")
+
         # Métricas principales
         m1, m2, m3 = st.columns(3)
         m1.metric("Ingresos Totales", f"{df['Total (Bs.)'].sum():.2f} BS.")
@@ -178,7 +208,7 @@ elif opcion == "📊 Panel de control e informes":
 
         st.markdown("---")
 
-        # --- SECCIÓN NUEVA: GRÁFICO INDIVIDUAL POR PLATO ---
+        # --- SECCIÓN: GRÁFICO INDIVIDUAL POR PLATO ---
         st.subheader("🔍 Análisis Detallado por Plato / Producto")
         
         # Lista de platos que se han vendido
