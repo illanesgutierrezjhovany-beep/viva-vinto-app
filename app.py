@@ -4,6 +4,7 @@ from datetime import datetime
 import pytz
 import plotly.express as px
 import io
+import os
 
 # Configuración de la página
 st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page_icon="🍔")
@@ -11,12 +12,28 @@ st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page
 # Definir la zona horaria de Bolivia
 ZONA_HORARIA_BO = pytz.timezone("America/La_Paz")
 
-# Inicialización de la base de datos temporal (Session State)
-if "ventas" not in st.session_state:
-    st.session_state["ventas"] = pd.DataFrame(columns=[
+# ARCHIVO LOCAL DE PERSISTENCIA ( Evita que se borren los datos al salir )
+ARCHIVO_CSV = "ventas_viva_vinto.csv"
+
+# Función para cargar datos guardados automáticamente
+def cargar_ventas():
+    if os.path.exists(ARCHIVO_CSV):
+        try:
+            return pd.read_csv(ARCHIVO_CSV)
+        except Exception:
+            pass
+    return pd.DataFrame(columns=[
         "ID", "Fecha", "Hora", "Producto", "Categoría", "Cantidad", 
         "Precio Unit. (Bs.)", "Total (Bs.)", "Método Pago", "Atendido Por"
     ])
+
+# Función para guardar en disco cada vez que hay un cambio
+def guardar_ventas():
+    st.session_state["ventas"].to_csv(ARCHIVO_CSV, index=False)
+
+# Inicialización de la base de datos persistente
+if "ventas" not in st.session_state:
+    st.session_state["ventas"] = cargar_ventas()
 
 # Carta de Productos y Precios del Restaurante Viva Vinto
 CARTA_PRODUCTOS = {
@@ -64,7 +81,7 @@ if opcion == "📝 Registrar Venta":
     st.markdown(f"### **Total a cobrar:** `{total:.2f} Bs.`")
 
     if st.button("🔴 Registrar Venta", use_container_width=True):
-        nuevo_id = len(st.session_state["ventas"]) + 1
+        nuevo_id = 1 if st.session_state["ventas"].empty else int(st.session_state["ventas"]["ID"].max()) + 1
         
         # Capturar fecha y hora exacta de Bolivia
         ahora_bo = datetime.now(ZONA_HORARIA_BO)
@@ -85,14 +102,15 @@ if opcion == "📝 Registrar Venta":
         }])
 
         st.session_state["ventas"] = pd.concat([st.session_state["ventas"], nueva_fila], ignore_index=True)
-        st.success(f"✅ ¡Venta ID #{nuevo_id} registrada con éxito a las {hora_str} (Hora Bolivia)!")
+        guardar_ventas() # Guardado permanente automático
+        st.success(f"✅ ¡Venta ID #{nuevo_id} registrada con éxito y GUARDADA a las {hora_str}!")
 
     st.markdown("---")
     st.subheader("📋 Historial de Ventas")
     st.dataframe(st.session_state["ventas"], use_container_width=True)
 
-    # Exportar e Eliminar
-    col_acc1, col_acc2 = st.columns(2)
+    # Exportar, Eliminar y Reiniciar Día
+    col_acc1, col_acc2, col_acc3 = st.columns(3)
 
     with col_acc1:
         st.subheader("📥 Exportar Datos")
@@ -116,44 +134,52 @@ if opcion == "📝 Registrar Venta":
         st.subheader("🗑️ Eliminar Venta")
         if not st.session_state["ventas"].empty:
             ids_disponibles = st.session_state["ventas"]["ID"].tolist()
-            id_a_eliminar = st.selectbox("Selecciona el ID de la venta a eliminar:", ids_disponibles)
+            id_a_eliminar = st.selectbox("Selecciona el ID a eliminar:", ids_disponibles)
             
             if st.button("❌ Eliminar Venta Seleccionada", type="secondary", use_container_width=True):
                 st.session_state["ventas"] = st.session_state["ventas"][st.session_state["ventas"]["ID"] != id_a_eliminar]
+                guardar_ventas() # Actualizar guardado
                 st.success(f"Venta ID #{id_a_eliminar} eliminada correctamente.")
                 st.rerun()
         else:
             st.info("No hay ventas para eliminar.")
+
+    with col_acc3:
+        st.subheader("🚨 Control de Caja")
+        if not st.session_state["ventas"].empty:
+            if st.button("🔴 Reiniciar / Vaciar Base de Datos", type="primary", use_container_width=True):
+                st.session_state["ventas"] = pd.DataFrame(columns=[
+                    "ID", "Fecha", "Hora", "Producto", "Categoría", "Cantidad", 
+                    "Precio Unit. (Bs.)", "Total (Bs.)", "Método Pago", "Atendido Por"
+                ])
+                guardar_ventas() # Guardar estado vacío
+                st.success("La base de datos se ha limpiado por completo.")
+                st.rerun()
 
 # ==================== MÓDULO 2: PANEL DE CONTROL E INFORMES ====================
 elif opcion == "📊 Panel de control e informes":
     st.title("📊 Dashboard e Informes de Ventas")
 
     if st.session_state["ventas"].empty:
-        st.warning("Aún no hay ventas registradas en esta sesión. Registra una nueva venta para generar el reporte.")
+        st.warning("Aún no hay ventas registradas. Registra una nueva venta para generar el reporte.")
     else:
         df = st.session_state["ventas"].copy()
         
-        # Convertir columnas a formato numérico
         df["Total (Bs.)"] = pd.to_numeric(df["Total (Bs.)"], errors="coerce").fillna(0)
         df["Cantidad"] = pd.to_numeric(df["Cantidad"], errors="coerce").fillna(0)
 
-        # 📥 BOTÓN EXCLUSIVO: DESCARGAR REPORTES DEL DASHBOARD EN EXCEL
+        # EXPORTAR REPORTES DEL DASHBOARD EN EXCEL
         st.subheader("📥 Exportar Reporte Ejecutivo del Dashboard")
         buffer_dash = io.BytesIO()
         with pd.ExcelWriter(buffer_dash, engine='openpyxl') as writer:
-            # Pestaña 1: Historial General
             df.to_excel(writer, index=False, sheet_name='Historial Ventas')
             
-            # Pestaña 2: Arqueo por Método de Pago
             arqueo_summary = df.groupby("Método Pago", as_index=False)["Total (Bs.)"].sum()
             arqueo_summary.to_excel(writer, index=False, sheet_name='Resumen Pago')
             
-            # Pestaña 3: Resumen por Categoría
             cat_summary = df.groupby("Categoría", as_index=False).agg({"Cantidad": "sum", "Total (Bs.)": "sum"})
             cat_summary.to_excel(writer, index=False, sheet_name='Resumen Categoría')
             
-            # Pestaña 4: Resumen por Producto / Plato
             prod_summary = df.groupby("Producto", as_index=False).agg({"Cantidad": "sum", "Total (Bs.)": "sum"})
             prod_summary.to_excel(writer, index=False, sheet_name='Ventas por Producto')
 
@@ -190,6 +216,7 @@ elif opcion == "📊 Panel de control e informes":
                 title="Total Recaudado por Método de Pago"
             )
             fig_arqueo.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
+            fig_arqueo.update_yaxes(tickformat=",.0f") # Bloquea los decimales
             st.plotly_chart(fig_arqueo, use_container_width=True)
 
         with c2:
@@ -204,21 +231,19 @@ elif opcion == "📊 Panel de control e informes":
                 title="Ventas Acumuladas por Categoría"
             )
             fig_cat.update_layout(showlegend=False, yaxis_title="Total (Bs.)", xaxis_title="")
+            fig_cat.update_yaxes(tickformat=",.0f") # Bloquea los decimales
             st.plotly_chart(fig_cat, use_container_width=True)
 
         st.markdown("---")
 
-        # --- SECCIÓN: GRÁFICO INDIVIDUAL POR PLATO ---
+        # SECCIÓN: GRÁFICO INDIVIDUAL POR PLATO
         st.subheader("🔍 Análisis Detallado por Plato / Producto")
         
-        # Lista de platos que se han vendido
         platos_vendidos = df["Producto"].unique()
         plato_seleccionado = st.selectbox("Elige un plato para ver sus ventas individuales:", platos_vendidos)
         
-        # Filtrar solo el plato seleccionado
         df_plato = df[df["Producto"] == plato_seleccionado]
         
-        # Agrupar por hora o registro para graficar
         fig_plato = px.bar(
             df_plato,
             x="Hora",
@@ -228,8 +253,8 @@ elif opcion == "📊 Panel de control e informes":
             text_auto=True
         )
         fig_plato.update_layout(yaxis_title="Cantidad de Platos", xaxis_title="Hora de Venta")
+        fig_plato.update_yaxes(tickformat=",.0f") # Bloquea los decimales
         
-        # Métricas individuales
         col_p1, col_p2 = st.columns(2)
         col_p1.metric(f"Total {plato_seleccionado} Vendidos", f"{int(df_plato['Cantidad'].sum())} unids.")
         col_p2.metric(f"Dinero Generado por {plato_seleccionado}", f"{df_plato['Total (Bs.)'].sum():.2f} Bs.")
