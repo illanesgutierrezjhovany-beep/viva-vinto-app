@@ -3,164 +3,152 @@ import pandas as pd
 from datetime import datetime
 
 # Configuración de la página
-st.set_page_config(
-    page_title="Punto de Venta - Viva Vinto",
-    page_icon="🍽️",
-    layout="wide"
-)
+st.set_page_config(page_title="Punto de Venta - Viva Vinto", layout="wide", page_icon="🍔")
 
-# Estilos visuales personalizados
-st.markdown("""
-    <style>
-    .main-header { font-size: 28px; font-weight: bold; color: #4A1521; }
-    .stButton>button { background-color: #4A1521; color: white; border-radius: 8px; font-weight: bold; }
-    .stButton>button:hover { background-color: #8C2D38; color: white; }
-    </style>
-""", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# Base de Datos de Productos (Menú Oficial Viva Vinto)
-# -----------------------------------------------------------------------------
-MENU_DATA = [
-    # Phampaku
-    {"Categoría": "Phampaku", "Producto": "Phampaku Pato", "Precio": 90.0},
-    {"Categoría": "Phampaku", "Producto": "Phampaku Lechon", "Precio": 75.0},
-    {"Categoría": "Phampaku", "Producto": "Phampaku Pollo", "Precio": 75.0},
-    {"Categoría": "Phampaku", "Producto": "Phampaku Cordero", "Precio": 75.0},
-    {"Categoría": "Phampaku", "Producto": "Phampaku Laping", "Precio": 75.0},
-    # Phampaku Mixto
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Pato - Lechon", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Pato - Laping", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Pato - Cordero", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Pato - Pollo", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Lechon - Laping", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Lechon - Pollo", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Lechon - Cordero", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Laping - Pollo", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Laping - Cordero", "Precio": 75.0},
-    {"Categoría": "Phampaku Mixto", "Producto": "Mixto Cordero - Pollo", "Precio": 75.0},
-    # Picante
-    {"Categoría": "Picante", "Producto": "Picante De Pollo", "Precio": 75.0},
-    {"Categoría": "Picante", "Producto": "Picante De Lengua", "Precio": 75.0},
-    {"Categoría": "Picante", "Producto": "Picante Mixto", "Precio": 75.0},
-    # Otros Platos
-    {"Categoría": "Otros Platos", "Producto": "Chanka de Pollo", "Precio": 55.0},
-    {"Categoría": "Otros Platos", "Producto": "Charque", "Precio": 75.0},
-    {"Categoría": "Otros Platos", "Producto": "Pique", "Precio": 90.0},
-    # Para Picar
-    {"Categoría": "Para Picar", "Producto": "Mote de Haba", "Precio": 20.0},
-    {"Categoría": "Para Picar", "Producto": "Quesillo", "Precio": 8.0},
-    {"Categoría": "Para Picar", "Producto": "K'allu", "Precio": 15.0},
-    # Menú para Niños
-    {"Categoría": "Menu para Niños", "Producto": "Salchipapas", "Precio": 25.0},
-    {"Categoría": "Menu para Niños", "Producto": "Pollo Dorado", "Precio": 30.0},
-    # Guarniciones
-    {"Categoría": "Guarniciones", "Producto": "Porción de Chuño", "Precio": 5.0},
-    {"Categoría": "Guarniciones", "Producto": "Porción de Arroz", "Precio": 5.0},
-    {"Categoría": "Guarniciones", "Producto": "Porción de Papa", "Precio": 5.0},
-    {"Categoría": "Guarniciones", "Producto": "Porción de Plátano", "Precio": 5.0},
-    {"Categoría": "Guarniciones", "Producto": "Porción de Ensalada", "Precio": 5.0},
-]
-
-df_menu = pd.DataFrame(MENU_DATA)
-
-# Memoria temporal de la sesión
-if 'ventas' not in st.session_state:
-    st.session_state.ventas = pd.DataFrame(columns=[
-        "ID", "Fecha", "Hora", "Producto", "Categoría", "Cantidad", "Precio Unit. (Bs.)", "Total (Bs.)", "Método Pago", "Atendido Por"
+# Inicialización de la base de datos temporal (Session State)
+if "ventas" not in st.session_state:
+    st.session_state["ventas"] = pd.DataFrame(columns=[
+        "ID", "Fecha", "Hora", "Producto", "Categoría", "Cantidad", 
+        "Precio Unit. (Bs.)", "Total (Bs.)", "Método Pago", "Atendido Por"
     ])
 
-# -----------------------------------------------------------------------------
-# Interfaz Principal
-# -----------------------------------------------------------------------------
-st.markdown("<p class='main-header'>🍽️ Sistema POS & BI - Viva Vinto</p>", unsafe_allow_html=True)
+# Carta de Productos y Precios del Restaurante Viva Vinto
+CARTA_PRODUCTOS = {
+    "Phampaku": {
+        "Phampaku Pato": 90,
+        "Phampaku Pollo": 75,
+        "Phampaku Lechon": 85,
+        "Phampaku Mixto": 100
+    },
+    "Bebidas": {
+        "Cerveza Paceña 620ml": 18,
+        "Gaseosa 2L": 15,
+        "Jarra de Chicha": 20,
+        "Agua Mineral": 8
+    },
+    "Guarniciones": {
+        "Porción de Arroz": 5,
+        "Porción de Papa": 5,
+        "Porción de Ensalada": 5
+    }
+}
 
-menu_opcion = st.sidebar.radio("Navegación", ["📝 Registrar Venta", "📊 Dashboard & Reportes", "📋 Carta y Precios"])
+# Barra Lateral de Navegación
+st.sidebar.title("Navegación")
+opcion = st.sidebar.radio("Ir a:", ["📝 Registrar Venta", "📊 Panel de control e informes", "📋 Carta y Precios"])
 
-# MÓDULO 1: REGISTRAR VENTA
-if menu_opcion == "📝 Registrar Venta":
-    st.subheader("Registrar Nueva Venta")
+# ==================== MÓDULO 1: REGISTRAR VENTA ====================
+if opcion == "📝 Registrar Venta":
+    st.title("📝 Registro de Ventas - Restaurante Viva Vinto")
     
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns(2)
     
     with col1:
-        categoria_sel = st.selectbox("1. Selecciona Categoría", df_menu["Categoría"].unique())
-        productos_filtrados = df_menu[df_menu["Categoría"] == categoria_sel]["Producto"].tolist()
-        
-        producto_sel = st.selectbox("2. Selecciona Platillo / Bebida", productos_filtrados)
-        precio_unit = df_menu[df_menu["Producto"] == producto_sel]["Precio"].values[0]
-        
-        st.info(f"💰 **Precio Unitario:** {precio_unit:.2f} Bs.")
-        
+        categoria = st.selectbox("Seleccionar Categoría:", list(CARTA_PRODUCTOS.keys()))
+        producto = st.selectbox("Seleccionar Producto:", list(CARTA_PRODUCTOS[categoria].keys()))
+        precio_unitario = CARTA_PRODUCTOS[categoria][producto]
+        st.info(f"**Precio Unitario:** {precio_unitario} Bs.")
+
     with col2:
-        cantidad = st.number_input("3. Cantidad", min_value=1, value=1, step=1)
-        metodo_pago = st.selectbox("4. Método de Pago", ["Efectivo", "QR / Transferencia", "Tarjeta"])
-        atendido_por = st.text_input("5. Atendido por", value="Caja 1")
-        
-        total_calculado = cantidad * precio_unit
-        st.metric(label="Total a Cobrar", value=f"{total_calculado:.2f} Bs.")
+        cantidad = st.number_input("Cantidad:", min_value=1, value=1, step=1)
+        metodo_pago = st.selectbox("Método de Pago:", ["Efectivo", "QR / Transferencia", "Tarjeta"])
+        atendido_por = st.selectbox("Atendido por:", ["Caja 1", "Caja 2", "Garzón 1", "Garzón 2"])
+
+    total = cantidad * precio_unitario
+    st.markdown(f"### **Total a cobrar:** `{total} Bs.`")
 
     if st.button("🔴 Registrar Venta", use_container_width=True):
-        now = datetime.now()
-        nueva_venta = {
-            "ID": len(st.session_state.ventas) + 1,
-            "Fecha": now.strftime("%Y-%m-%d"),
-            "Hora": now.strftime("%H:%M:%S"),
-            "Producto": producto_sel,
-            "Categoría": categoria_sel,
+        nuevo_id = len(st.session_state["ventas"]) + 1
+        ahora = datetime.now()
+        fecha_str = ahora.strftime("%Y-%m-%d")
+        hora_str = ahora.strftime("%H:%M:%S")
+
+        nueva_fila = pd.DataFrame([{
+            "ID": nuevo_id,
+            "Fecha": fecha_str,
+            "Hora": hora_str,
+            "Producto": producto,
+            "Categoría": categoria,
             "Cantidad": cantidad,
-            "Precio Unit. (Bs.)": precio_unit,
-            "Total (Bs.)": total_calculado,
+            "Precio Unit. (Bs.)": precio_unitario,
+            "Total (Bs.)": total,
             "Método Pago": metodo_pago,
             "Atendido Por": atendido_por
-        }
-        st.session_state.ventas = pd.concat([st.session_state.ventas, pd.DataFrame([nueva_venta])], ignore_index=True)
-        st.success(f"¡Venta registrada! Total: {total_calculado:.2f} Bs.")
+        }])
+
+        st.session_state["ventas"] = pd.concat([st.session_state["ventas"], nueva_fila], ignore_index=True)
+        st.success(f"✅ ¡Venta ID #{nuevo_id} registrada con éxito!")
 
     st.markdown("---")
-    st.write("### 📋 Historial de Ventas")
-    st.dataframe(st.session_state.ventas, use_container_width=True)
+    st.subheader("📋 Historial de Ventas")
+    st.dataframe(st.session_state["ventas"], use_container_width=True)
 
-# MÓDULO 2: DASHBOARD Y ANALÍTICA DE NEGOCIO
-elif menu_opcion == "📊 Dashboard & Reportes":
-    st.subheader("📊 Control de Caja e Inteligencia de Negocios")
-    
-    df_v = st.session_state.ventas
-    
-    if df_v.empty:
-        st.warning("Aún no hay ventas registradas. Ve a 'Registrar Venta' para añadir transacciones.")
-    else:
-        total_ingresos = df_v["Total (Bs.)"].sum()
-        total_platos = df_v["Cantidad"].sum()
-        ticket_promedio = df_v["Total (Bs.)"].mean()
-        
-        kpi1, kpi2, kpi3 = st.columns(3)
-        kpi1.metric("Ingresos Totales", f"{total_ingresos:.2f} Bs.")
-        kpi2.metric("Platos Vendidos", f"{total_platos} unids.")
-        kpi3.metric("Ticket Promedio", f"{ticket_promedio:.2f} Bs.")
-        
-        st.markdown("---")
-        
-        col_graf1, col_graf2 = st.columns(2)
-        
-        with col_graf1:
-            st.write("#### Ingresos por Método de Pago (Arqueo)")
-            st.bar_chart(df_v.groupby("Método Pago")["Total (Bs.)"].sum())
+    # Contenedor para acciones de la tabla: Descargar Excel y Eliminar Venta
+    col_acc1, col_acc2 = st.columns(2)
+
+    with col_acc1:
+        st.subheader("📥 Exportar Datos")
+        if not st.session_state["ventas"].empty:
+            # Convertir el DataFrame a un archivo Excel en memoria
+            import io
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                st.session_state["ventas"].to_excel(writer, index=False, sheet_name='Ventas')
             
-        with col_graf2:
-            st.write("#### Ventas Totales por Categoría")
-            st.bar_chart(df_v.groupby("Categoría")["Total (Bs.)"].sum())
+            st.download_button(
+                label="📊 Descargar Historial en Excel (.xlsx)",
+                data=buffer.getvalue(),
+                file_name=f"Ventas_Viva_Vinto_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        else:
+            st.info("Registra al menos una venta para poder exportar a Excel.")
+
+    with col_acc2:
+        st.subheader("🗑️ Eliminar Venta")
+        if not st.session_state["ventas"].empty:
+            ids_disponibles = st.session_state["ventas"]["ID"].tolist()
+            id_a_eliminar = st.selectbox("Selecciona el ID de la venta a eliminar:", ids_disponibles)
+            
+            if st.button("❌ Eliminar Venta Seleccionada", type="secondary", use_container_width=True):
+                st.session_state["ventas"] = st.session_state["ventas"][st.session_state["ventas"]["ID"] != id_a_eliminar]
+                st.success(f"Venta ID #{id_a_eliminar} eliminada correctamente.")
+                st.rerun()
+        else:
+            st.info("No hay ventas para eliminar.")
+
+# ==================== MÓDULO 2: PANEL DE CONTROL E INFORMES ====================
+elif opcion == "📊 Panel de control e informes":
+    st.title("📊 Dashboard e Informes de Ventas")
+
+    if st.session_state["ventas"].empty:
+        st.warning("Aún no hay ventas registradas para generar el reporte. Registra algunas ventas primero.")
+    else:
+        df = st.session_state["ventas"]
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Ingresos Totales", f"{df['Total (Bs.)'].sum():.2f} BS.")
+        m2.metric("Total Platos / Productos Ventas", f"{df['Cantidad'].sum()} unids.")
+        m3.metric("Ticket Promedio", f"{df['Total (Bs.)'].mean():.2f} BS.")
 
         st.markdown("---")
-        csv_data = df_v.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Descargar Reporte Completo en Excel (CSV)",
-            data=csv_data,
-            file_name="reporte_ventas_viva_vinto.csv",
-            mime="text/csv",
-        )
 
-# MÓDULO 3: CARTA Y PRECIOS
-elif menu_opcion == "📋 Carta y Precios":
-    st.subheader("Menú de Productos Registrados")
-    st.dataframe(df_menu, use_container_width=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("Ingresos por Método de Pago (Arqueo)")
+            arqueo = df.groupby("Método Pago")["Total (Bs.)"].sum()
+            st.bar_chart(arqueo)
+
+        with c2:
+            st.subheader("Ventas Totales por Categoría")
+            cat_ventas = df.groupby("Categoría")["Total (Bs.)"].sum()
+            st.bar_chart(cat_ventas)
+
+# ==================== MÓDULO 3: CARTA Y PRECIOS ====================
+elif opcion == "📋 Carta y Precios":
+    st.title("📋 Menú y Precios Oficiales")
+    for cat, prods in CARTA_PRODUCTOS.items():
+        st.subheader(f"📌 {cat}")
+        df_cat = pd.DataFrame(list(prods.items()), columns=["Producto", "Precio (Bs.)"])
+        st.table(df_cat)
